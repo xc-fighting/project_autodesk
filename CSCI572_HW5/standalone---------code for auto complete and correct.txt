@@ -1,0 +1,101 @@
+/*
+  below the code for auto complete
+*/
+html part:
+ <div id="header" align="center">
+	    
+	         <form accept-charset="utf-8" method="get">
+	              <label for="q">Search:</label>
+	              <input id="q" name="q" type="text" value="<?php  echo htmlspecialchars($query,ENT_QUOTES,'utf-8');?>" 
+	              onkeyup="getSuggest(this.value,event)" autocomplete="off"/>
+	              <input type="submit" value="SEARCH"/><br/>
+	              <input type="radio" name="way" value="PageRank"/>pageRank&nbsp;&nbsp;
+	              <input type="radio" name="way" value="Lucence"/>Lucene<br/>
+	              
+	         </form>
+		
+      </div>
+
+js part:
+<script type="text/javascript">
+		      function getSuggest(term,e){
+                    if(e.keyCode==38 || e.keyCode==40){
+                    	return;
+                    }
+                    if(term.length==0 ||term[term.length-1]==" "){
+                    	return;
+                    }
+                    arr=term.split(" ");
+                    input=arr[arr.length-1].toLowerCase();
+                    var req=new XMLHttpRequest();
+                    req.onreadystatechange=function(){
+                    	if(this.readyState==4 || this.readyState==200){
+                    		if(document.getElementById("q").value!=term){
+                    			return;
+                    		}
+                    		var response=JSON.parse(this.responseText);
+                    		var suggestArr=response['suggest']['suggest'][input]['suggestions'];
+                    		var limit=Math.min(suggestArr.length,10);
+                            var list=[];
+                            for(i=0;i<limit;i++){
+                            	var prefix=term.substr(0,term.lastIndexOf(" ")+1);
+                            	list.push(prefix+suggestArr[i]['term']);
+                            //	alert(suggestArr[i]['term']);
+                            }
+                            $("#q").autocomplete({
+                            	 source:function(request,response){
+                            	 	response(list);
+                            	 }
+                            });
+                    	}
+                    };
+                   req.open("GET","suggest.php?q="+input,true);
+                   req.send();
+		      }
+		</script>
+
+php part:
+<?php
+  require_once('Apache/Solr/Service.php');
+  if(isset($_REQUEST['q'])){
+  	  $query=$_REQUEST['q'];
+  }
+  else{
+  	 $query=false;
+  }
+  $url="http://10.120.43.82:8983/solr/csci572/suggest?q=".$query;
+  //http://192.168.0.31:8983/solr/csci572/suggest?q=ca
+  $opt=array(
+       'http'=>array(
+            'method'=>'GET',
+            'timeout'=>60
+       	)
+  	);
+  $context=stream_context_create($opt);
+  $result=file_get_contents($url,false,$context);
+  echo $result;
+
+?>
+
+/*
+ below the code for correction
+*/
+ <?php
+            $correct_ones=[];
+            $isCorrect=true;
+            for($index=0;$index<count($input);$index++){
+            	 $temp=strtolower(SpellCorrector::correct($input[$index]));
+            	 if($input[$index]!=$temp){
+            	 	 $isCorrect=false;
+            	 }
+            	 array_push($correct_ones,$temp);
+            }
+            if($isCorrect==false){
+            	 $correct_ones=implode(" ",$correct_ones);
+            	 echo  "Do you mean:";
+            	 echo  "<a href='index.php?q=".$correct_ones."'>".$correct_ones."</a>";
+            }
+
+
+
+      ?>
